@@ -857,54 +857,6 @@ create.bigwig.from.rle = function(rle.folder, rle.prefix, out.folder, bam.files,
 
 z.transform = function(mat){mat = (mat - apply(mat,1,mean))/apply(mat,1,sd);return(mat)}
 
-box.plot.df = function(df, colNumber, main, col){
-  protein.df = intersect(protein, rownames(df))
-  lnc.df = intersect(lnc, rownames(df))
-  erna.df = intersect(erna, rownames(df))
-  lens = c(length(protein.df), length(lnc.df), length(erna.df))
-  col = alpha(col, 0.7)
-  names = c("Protein Coding", "lncRNA", "eRNA")
-  
-  boxplot(df[protein.df, colNumber], df[lnc.df, colNumber], df[erna.df, colNumber], col = col, outline = F, notch = T, names = names,
-          ylab = main, main = paste0(main, " at ", colNumber, " h"))
-  legend("topright", legend = paste0("n = ", lens ), col = col, bty ="n", pch = 15, cex=1)
-}
-
-boxplot.with.sig = function(df, tr, xlab, ylab, xlim, ylim, col, main){
-  if(TRUE){
-    tr = intersect(tr, rownames(df))
-    if.i = df[tr, ]
-    sub = paste0("( n = ", length(tr), " )")
-    col = alpha(col, 0.6)
-    boxplot(if.i, outline = F, notch = T, 
-            main = main, sub = sub, xlab = xlab, ylab = ylab,  
-            col = col, ylim = ylim)
-    comp = c(1:length(colnames(df)))
-    k = c()
-    for (p in 1:(length(comp) - 1)) {
-      k.i = kruskal.test(list(a = if.i[,comp[p]], b = if.i[,comp[p+1]]))$p.value
-      if(k.i > 0.01){
-        k.i = round(k.i, 2)
-      }
-      else{
-        k.i = formatC(k.i, format = "e", digits = 2)
-      }
-      k = c(k, k.i)
-    }
-    plotlim = par("usr")
-    yplotlim = c(plotlim[3], plotlim[4])
-    ygrad = (yplotlim[2] - yplotlim[1])/20
-    xloc = c(1.5, 2.5, 3.5, 4.5)
-    yloc = c(yplotlim[2] - 4*ygrad, yplotlim[2] - 5*ygrad, yplotlim[2] - 6*ygrad, yplotlim[2] - 7*ygrad)
-    for (j in 1:(length(comp) - 1)) {
-      text(x = xloc[j], y = yloc[j], labels = k[j], cex = 0.85, col = "darkblue")
-      segments(x0 = xloc[j]-0.4, y0 = yloc[j]-ygrad/2, x1 = xloc[j]+0.4, y1 = yloc[j]-ygrad/2, col = "darkblue")
-      segments(x0 = xloc[j]-0.4, y0 = yloc[j]-ygrad/2, x1 = xloc[j]-0.4, y1 = yloc[j]-ygrad, col = "darkblue")
-      segments(x0 = xloc[j]+0.4, y0 = yloc[j]-ygrad/2, x1 = xloc[j]+0.4, y1 = yloc[j]-ygrad, col = "darkblue")
-    }
-  }
-}
-
 make.average.dataset = function(df, col.names){
   index = rownames(df)
   n.row = nrow(df)
@@ -920,69 +872,6 @@ make.average.dataset = function(df, col.names){
     avg.df[index, i] = rowMeans(df[index, ((2*i)-1):(2*i)], na.rm = T)
   }
   return(avg.df)
-}
-
-create.igv.plot = function(gene.tr.list, anno, exon.anno, rle.folder, rle.prefix, bam.file.list, col){
-  for (k in gene.tr.list) {
-    gene.tr = k
-    gene.chr = as.character(anno[gene.tr, ]$chr)
-    gene.dir = as.character(anno[gene.tr, , ]$strand)
-    if(gene.dir == "+"){
-      gene.start = anno[gene.tr, ]$start
-      gene.end = anno[gene.tr, ]$end
-    }else{
-      gene.start = anno[gene.tr, ]$end
-      gene.end = anno[gene.tr, ]$start
-    }
-    chr.rle.bamfiles = list()
-    chr.rle.bamfiles.avg = list()
-    for (i in 1:length(bam.file.list)) {
-      for (j in 1:length(bam.file.list[[i]])) {
-        rle = get(load(paste0(rle.folder,"/",bam.file.list[[i]][j], "/", rle.prefix, gene.chr, ".RData")))
-        chr.rle.bamfiles[[j]] = as.vector(rle[[gene.dir]])[gene.start:gene.end]
-      }
-      chr.rle.bamfiles.avg[[i]] = rowMeans(as.data.frame(chr.rle.bamfiles))
-    }
-    
-    xlim = c(1, length(chr.rle.bamfiles.avg[[1]]))
-    ylim = c(0, max(unlist(chr.rle.bamfiles.avg)))
-    
-    par(mar=c(0,0,0,0))
-    layout(matrix(c(1:(length(chr.rle.bamfiles.avg)+2)),ncol=1),heights=c(2, 3,rep(3, length(chr.rle.bamfiles.avg))))
-    plot.new()
-    gene.name = anno[gene.tr, ]$gene_name
-    text(0.5, 0.5, gene.name, cex=2, font=2, family="serif")
-    labels=c(0,12,24,72,96)
-    for (i in 1:length(chr.rle.bamfiles.avg)) {
-      plot(NULL, xlim = xlim, ylim = ylim, xlab = "", ylab = "",bty ="n",axes=F,frame.plot=F, xaxt='n')
-      x1 = c(1:xlim[2], xlim[2]: 1)
-      x2 = c((chr.rle.bamfiles.avg[[i]]), rep(0, xlim[2]))
-      polygon(x1, x2, col = col, border = col)
-      legend("topright", paste0(labels[i], " h"), bty="n", col = "black", cex = 1.6, text.font = 2) 
-      legend("top", paste0("(0-", ceiling(ylim[2]),")"), bty="n", col = "black", cex = 1) 
-    }
-    
-    # Beautify
-    
-    anno.exon.gene = anno.exon[which(anno.exon$trid == gene.tr), ]
-    anno.exon.gene.starts = sort(anno.exon.gene$start)
-    anno.exon.gene.ends = sort(anno.exon.gene$end)
-    min.start = min(anno.exon.gene.ends, anno.exon.gene.starts)
-    
-    anno.exon.gene.starts = anno.exon.gene.starts - min.start
-    anno.exon.gene.ends = anno.exon.gene.ends - min.start
-    
-    col1 = alpha("darkblue", 1)
-    
-    plot(NULL, xlim = xlim, ylim = c(0,20), xlab = "", ylab = "",bty ="n",axes=F,frame.plot=F, xaxt='n')
-    arrows(x0 = 0, y0 = 15, x1 = xlim[2], y1 = 15, length = 0, col = col1, lwd = 2)
-    for (ex in 1:length(anno.exon.gene.ends)) {
-      rect(anno.exon.gene.starts[ex],13,anno.exon.gene.ends[ex],17,col=col1, border = NA)
-      if(ex != length(anno.exon.gene.ends))
-        arrows(x0 = anno.exon.gene.ends[ex], y0 = 15, x1 = anno.exon.gene.ends[ex] + (anno.exon.gene.starts[ex+1] - anno.exon.gene.ends[ex])/2, y1 = 15, length = 0.07, col = "darkblue", lwd = 1.2)
-    }
-    
-  }
 }
 
 create.coverages = function(bam.files, replicate.per.sample, gene.anno, from, to, window, 
