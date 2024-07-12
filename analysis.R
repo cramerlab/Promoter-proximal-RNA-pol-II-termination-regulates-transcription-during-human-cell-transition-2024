@@ -214,8 +214,38 @@ mc.cores = 8 # detectCores()
 }
 
 #####################################################
-# pause positions
+# pause positions and mnet counts for normalization
 #####################################################
+# transcript counts
+{
+  # location of antisense bias correction file (will be created in the calculate.counts step)
+  mnet.antisense.bias.ratio.location = paste0(mnet.data.dir, "/antisense.bias.ratio.Rdata")
+  
+  # counts for the regions of interest
+  calculate.counts(anno = anno, 
+                   rle.location = paste0(mnet.rle.dir, "/fragment.mid.rle.tracks/"), 
+                   bam.files = mnet.bam.files,
+                   rle.prefix = "", 
+                   chrs = hs.chrs, 
+                   chrs.lengths = hs.chrs.lengths,
+                   out.folder = mnet.data.dir, 
+                   file.name = "unnormalized.feature.counts",
+                   antisense.bias.ratio.location = tt.antisense.bias.ratio.location, 
+                   antisense = T,
+                   find.antisense = T)
+  
+  mnet.counts = get(load(paste0(mnet.data.dir, "unnormalized.counts.antisense.corrected.RData")))
+  
+  # size factors for normalization
+  expDesign = data.frame(condition = c("0","0","12","12","24","24","72","72","96","96"), replicate = rep(c("1","2"), 5), row.names = colnames(coverage))
+  dds = DESeqDataSetFromMatrix(countData = round(mnet.counts),
+                               colData = expDesign,
+                               design = ~ condition)
+  esfObj = estimateSizeFactors(dds)
+  tt.size.factors = esfObj$sizeFactor
+}
+
+# pause positions
 {
   # determining max signal positions from mnet seq data
   {
@@ -327,7 +357,7 @@ mc.cores = 8 # detectCores()
     tt.counts = get(load(paste0(tt.data.dir, "unnormalized.counts.antisense.corrected.RData")))
     
     # size factors for normalization
-    expDesign = data.frame(condition = c("0","0","12","12","24","24","72","72","96","96"), replicate = rep(c("1","2"), 7), row.names = colnames(coverage))
+    expDesign = data.frame(condition = c("0","0","12","12","24","24","72","72","96","96"), replicate = rep(c("1","2"), 5), row.names = colnames(coverage))
     dds = DESeqDataSetFromMatrix(countData = round(tt.counts),
                                  colData = expDesign,
                                  design = ~ condition)
