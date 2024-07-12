@@ -20,27 +20,28 @@
 # version details of packages used in this script is available in info.txt
 
 
-# setting the directory for running Setup.R as path to the location of the directory containing the CalculationUnit folder
-wd = "/usr/users/adevada/Projects/Human/"       
+# setting the directory for running Setup.R as path to the location of the directory data/
+scripts.dir = "~/data/"       
 
 # running the setup file
-source(file.path(prewd,"CalculationUnit","CodeUnits","Setup","Setup.R"))
-setwd(file.path(prewd))
+source(file.path(scripts.dir, "setup.R"))
+
 mc.cores = 8 # detectCores()
-setwd("arjunserver/Projects/Human/transdifferentiation_analysis/scripts/")
+
 #####################################################
 # setting directories for input and output
 #####################################################
 # inputs are the bam files of TT-seq, mNET-seq, various ChIP-seqs and ChIP-nexus seq
-# annotation can be used as in the study or any annotation with fields specified in README.md can be given
+# annotation can be used as in the study or any annotation with fields "chr" for chromosome, "width" for feature length and "id" as a unique identifier (also preferably the rowname) 
 # output file location can be specified
+
 {
   # bam file locations (please provide full path for smooth running)
   tt.bam.dir = ""     # processed as in Choi et al., eLife 2021
-  mnet.bam.dir = ""   # this study, please check the sh script for preprocessing
-  cdk.bam.dir = ""    # cdk9 ChIP, please check the sh script for preprocessing
-  cyc.bam.dir = ""    # cyc T1 ChIP, please check the sh script for preprocessing
-  pol2.bam.dir = ""   # pol II ChIP nexus, please check the sh script for preprocessing
+  mnet.bam.dir = ""   # this study, please check the mapping.sh script for preprocessing and generating bam files
+  cdk.bam.dir = ""    # cdk9 ChIP, please check the mapping.sh script for preprocessing
+  cyc.bam.dir = ""    # cyc T1 ChIP, please check the mapping.sh script for preprocessing
+  pol2.bam.dir = ""   # pol II ChIP nexus, please check the mapping.sh script for preprocessing
   
   # output folder (please provide full path for smooth running)
   out.dir = "outputs"
@@ -83,26 +84,27 @@ setwd("arjunserver/Projects/Human/transdifferentiation_analysis/scripts/")
   hs.chrs = names(hs_chrs_lengths)
   
   # loading annotation files
-  extended.anno = get(load("data/2_GENCODE_v24_major_isoform_extended_annotation.RData"))
-  anno = get(load("data/1_GENCODE_v24_major_isoform_annotation.RData"))
+  anno = get(load("data/1_GENCODE_v24_major_isoform_annotation.RData")) # annotation of gene regions
+  extended.anno = get(load("data/2_GENCODE_v24_major_isoform_extended_annotation.RData")) # annotation with details of exon, intron and other genomic regions
   
   
   # creating other associated annotation data
   {
     protein = rownames(anno[which(anno$gene_type == "protein_coding"), ])
     
+    # exon annotation for calculating coverages for productive initiation frequency estimation
     exon.anno = extended.anno[which(extended.anno$type == "exon"), ]
     
     single.exon.anno = exon.anno %>% 
-                       group_by(transcript_name) %>% 
-                       filter(n() == 1) %>% 
-                       ungroup()
+      group_by(transcript_name) %>% 
+      filter(n() == 1) %>% 
+      ungroup()
     multi.exon.anno = exon.anno[-which(exon.anno$gene_name %in% single.exon.anno$gene_name), ]
     
     single.exon.anno = single.exon.anno[-which(single.exon.anno$width < 301), ]
     single.exon.anno = data.frame(resize(makeGRangesFromDataFrame(single.exon.anno, keep.extra.columns = T), fix = "end", width = (width(makeGRangesFromDataFrame(single.exon.anno, keep.extra.columns = T)) - 300)))
     
-    
+    # TSS to TSS+250 annotation for promoter proximal coverage calculation
     tss.anno = data.frame(promoters(makeGRangesFromDataFrame(anno, keep.extra.columns = T), upstream = 0, downstream = 250))
     colnames(tss.anno)[1] = "chr" # since some code snippets explicitly use this field
     rownames(tss.anno) = rownames(anno)
@@ -112,7 +114,7 @@ setwd("arjunserver/Projects/Human/transdifferentiation_analysis/scripts/")
 #####################################################
 # generating rle tracks
 #####################################################
-# tt
+# tt-seq
 {
   tt.bam.files = list.files(path = tt.bam.dir, pattern = ".bam$", full.names = F)
   
@@ -164,7 +166,7 @@ setwd("arjunserver/Projects/Human/transdifferentiation_analysis/scripts/")
 # cdk9_chip
 {
   cdk.bam.files = list.files(path = cdk.bam.dir, pattern = ".bam$", full.names = F)
-
+  
   # generating fragment mid coverage tracks
   create.fragment.mid.rle.tracks(bam.files = cdk.bam.files, 
                                  bam.input.folder = cdk.bam.dir, 
@@ -181,7 +183,7 @@ setwd("arjunserver/Projects/Human/transdifferentiation_analysis/scripts/")
 # cyc_chip
 {
   cyc.bam.files = list.files(path = cyc.bam.dir, pattern = ".bam$", full.names = F) 
-
+  
   # generating fragment mid coverage tracks
   create.fragment.mid.rle.tracks(bam.files = cyc.bam.files, 
                                  bam.input.folder = cyc.bam.dir, 
@@ -198,7 +200,7 @@ setwd("arjunserver/Projects/Human/transdifferentiation_analysis/scripts/")
 # pol2_nexus_chip
 {
   pol2.bam.files = list.files(path = pol2.bam.dir, pattern = ".bam$", full.names = F) 
-
+  
   # generating fragment mid coverage tracks
   create.nexus.rle.tracks(bam.files = pol2.bam.files, 
                           bam.input.folder = pol2.bam.dir, 
@@ -272,12 +274,12 @@ setwd("arjunserver/Projects/Human/transdifferentiation_analysis/scripts/")
     # median pause positions
     pause.pos["median"] = NA
     pause.pos["median"] = round(rowMedians(as.matrix(pause.pos[, 1:10]), na.rm = T)) # 1:10 are the columns with pause positions
-    pause.pos = pause.pos[-which(is.na(pause.pos$median)), ]
+    pause.pos = pause.pos[-which(is.na(pause.pos$median)), ] # removing genes with no pause positions at any time point
     
     # variation in pause positions
     pause.pos["sd"] = 0
     pause.pos["sd"] = rowSds(as.matrix(pause.pos[, 1:10]), na.rm = T)
-    pause.pos[which(is.na(pause.pos$sd)), "sd"] = 0
+    pause.pos[which(is.na(pause.pos$sd)), "sd"] = 0 # setting sd as 0 for genes with pause positions called at only 1 time point (sd function returns NA in this case)
     
     # filtering for less variation in positions
     pause.var.75 = rownames(pause.pos[which(pause.pos$sd < 75), ])
@@ -302,7 +304,7 @@ setwd("arjunserver/Projects/Human/transdifferentiation_analysis/scripts/")
 #####################################################
 # counts and normalization
 #####################################################
-# tt counts and productive initiation frequency 
+# tt-seq counts and productive initiation frequency 
 {
   # transcript counts
   {
@@ -338,9 +340,9 @@ setwd("arjunserver/Projects/Human/transdifferentiation_analysis/scripts/")
     
     expr.genes = list()
     for (i in 1:length(colnames(tt.RPKs))) {
-      # expr.mrna[[i]] = rownames(tt.RPKs[which(tt.RPKs[, i] > quantile(tt.RPKs[, i], 0.25)), ])
       expr.genes[[i]] = rownames(tt.RPKs[which(tt.RPKs[, i] > 10), ])
     }
+    
     expr.genes = unique(unlist(expr.genes))
   }  
   
@@ -659,7 +661,7 @@ setwd("arjunserver/Projects/Human/transdifferentiation_analysis/scripts/")
 {
   # pif - productive initiation frequency
   # apd - apparent pause duration
-  # pwc - promoter-proximal Window Coverage
+  # pwc - promoter-proximal region (pause window) coverage
   
   # initiation.rate.all and pif from '# tt counts' snippet need to be loaded
   
@@ -725,10 +727,10 @@ setwd("arjunserver/Projects/Human/transdifferentiation_analysis/scripts/")
     }
     save(cluster.list.protein, file = paste0(tt.data.dir, "cluster.list.protein.RData"))
     
-    # splitting iMac clusters on the basis of apd
+    # splitting iMac clusters on the basis of pif and apd
     data = ifpd
-    data[, 1:5] = z.transform(data[,1:5])
-    data[, 6:10] = z.transform(data[,6:10])
+    data[, 1:5] = z.transform(data[,1:5]) # transforming pif values to 0-1
+    data[, 6:10] = z.transform(data[,6:10]) # transforming apd values to 0-1
     clustermat = data
     nans = which(is.na(rowSums(clustermat)))
     clustermat = clustermat[-nans,]
@@ -836,29 +838,30 @@ setwd("arjunserver/Projects/Human/transdifferentiation_analysis/scripts/")
   data["pcr0"] = log(2) * data[index, "0.0"]/data[index, "hl.0"]
   data["pcr96"] = log(2) * data[index, "96.0"]/data[index, "hl.96"] 
   
-  # rescaling is done to make the values fall in a readable range, please note that this do not affect the distributions of the pcr or any other quantities that are estimated subsequently 
+  # rescaling values to 0-1, note that this do not affect the distributions of the pcr or any other quantities that are estimated subsequently 
   rs = rescale(c(data$pcr0, data$pcr96))
-  data$pcr0 = rs[1:1865] # change these numbers if using any different annotation accordingly, 1865 is the nrow of the data df
-  data$pcr96 = rs[1866:3730]
+  l = nrow(data)
+  data$pcr0 = rs[1:l] # change these numbers if using any different annotation accordingly, 1865 is the nrow of the data df
+  data$pcr96 = rs[(l+1):(2*l)]
   
   # rescaled pIF - productive initiation frequency
   rs = rescale(c(data$pIF0, data$pIF96)) 
-  data$pIF0 = rs[1:1865]
-  data$pIF96 = rs[1866:3730]
+  data$pIF0 = rs[1:l]
+  data$pIF96 = rs[(l+1):(2*l)]
   
   # pIFcalc - elongation fraction
   data["pIF0calc"] = data[index, "pIF0"]/data[index, "pcr0"]
   data["pIF96calc"] = data[index, "pIF96"]/data[index, "pcr96"]
   rs = rescale(c(data$pIF0calc, data$pIF96calc))
-  data$pIF0calc = rs[1:1865]
-  data$pIF96calc = rs[1866:3730]
+  data$pIF0calc = rs[1:l]
+  data$pIF96calc = rs[(l+1):(2*l)]
   
   # termination fraction
   data["drop0"] = 1 - data[index, "pIF0calc"]
   data["drop96"] = 1 - data[index, "pIF96calc"]
   rs = rescale(c(data$drop0, data$drop96))
-  data$drop0 = rs[1:1865]
-  data$drop96 = rs[1866:3730]
+  data$drop0 = rs[1:l]
+  data$drop96 = rs[(l+1):(2*l)]
   
   # final dataframe
   save(data, file = paste0(out.dir, "/all.data.Rdata"))
