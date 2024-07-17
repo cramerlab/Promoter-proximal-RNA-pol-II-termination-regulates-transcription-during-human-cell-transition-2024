@@ -2,7 +2,7 @@
 Scripts for the analysis presented in the article: Promoter-proximal RNA polymerase II termination regulates transcription during human cell type transition
 
 ### Data availability
-Fastq files used on this analysis are available from GEO series GSE235181.
+Fastq files used for this analysis are available from GEO series GSE235181.
 
 ### Data processing
 
