@@ -15,10 +15,10 @@ library(DESeq2)
 
 functions = list.files(file.path(prewd,"data","Utility"))
 for (i in functions){
-  source(file.path(prewd,"data","Utility",i))}
+  source(file.path("data","Utility",i))}
 
-source(file.path(prewd, "data", "processing.functions.R"))
+source(file.path("data", "processing.functions.R"))
 
-functions = list.files(file.path(prewd,"data","GatheringRoutines"))
+functions = list.files(file.path("data","GatheringRoutines"))
 for (i in functions){
-  source(file.path(prewd,"data","GatheringRoutines",i))}
+  source(file.path("data","GatheringRoutines",i))}
