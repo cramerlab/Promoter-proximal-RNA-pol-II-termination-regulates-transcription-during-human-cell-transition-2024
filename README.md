@@ -31,3 +31,11 @@ The analysis.R script provides step-by-step code to perform all of the analyses 
 7. Exponential fitting of ChIP-nexus data (following a time course of transcription initiation inhibition).
 8. Estimation of productive initiation frequency, apparent pause duration, promoter-proximal Pol II half-life, total turnover rate and termination fraction.
   
+#### R packages used
+ 1. rtracklayer 1.58.0
+ 2. GenomicAlignments 1.34.0
+ 3. Rsamtools 2.14.0
+ 4. dplyr 1.0.9
+ 5. doParallel 1.0.17
+ 6. DESeq2 1.38.0 
+ 
