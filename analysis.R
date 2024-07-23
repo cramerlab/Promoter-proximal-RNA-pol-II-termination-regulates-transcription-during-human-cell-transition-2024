@@ -21,7 +21,7 @@
 
 
 # setting the directory for running Setup.R as path to the location of the directory data/
-scripts.dir = "~/data/"       
+scripts.dir = ""       
 
 # running the setup file
 source(file.path(scripts.dir, "setup.R"))
