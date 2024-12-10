@@ -27,7 +27,7 @@ The analysis.R script provides step-by-step code to perform all of the analyses 
 3. Run the routines for read counting on the different datasets.
 4. Perform differential expression analysis to identify genes with significant changes in RNA synthesis (based on TT-seq data).
 5. Calculate the promoter-proximal occupancy of RNA polymerase (Pol) II from mNET-seq data (incl. routines for determining pause positions and defining promoter-proximal regions).
-6. Classification of genes based on expression pattern and gene clustering based on transcripiton kinetic parameters.
+6. Classification of genes based on expression pattern and gene clustering based on transcription kinetic parameters.
 7. Exponential fitting of ChIP-nexus data (following a time course of transcription initiation inhibition).
 8. Estimation of productive initiation frequency, apparent pause duration, promoter-proximal Pol II half-life, total turnover rate and termination fraction.
   
