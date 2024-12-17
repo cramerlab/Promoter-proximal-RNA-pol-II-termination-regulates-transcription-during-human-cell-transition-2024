@@ -234,7 +234,7 @@ mc.cores = 8 # detectCores()
                    antisense = T,
                    find.antisense = T)
   
-  mnet.counts = get(load(paste0(mnet.data.dir, "unnormalized.counts.antisense.corrected.RData")))
+  mnet.counts = get(load(paste0(mnet.data.dir, "unnormalized.feature.counts.antisense.corrected.RData")))
   
   # size factors for normalization
   expDesign = data.frame(condition = c("0","0","12","12","24","24","72","72","96","96"), replicate = rep(c("1","2"), 5), row.names = colnames(coverage))
@@ -404,7 +404,7 @@ mc.cores = 8 # detectCores()
     # aggregating non-first exon counts
     {
       tt.coverage.extended = get(load(paste0(tt.data.dir, "unnormalized.multi.exon.coverages.antisense.corrected.RData")))
-      tt.coverage.one.exon = get(load(paste0(tt.data.dir, "unnormalized.single.exon.transcript.coverages.antisense.corrected.RData")))
+      tt.coverage.one.exon = get(load(paste0(tt.data.dir, "unnormalized.single.exon.coverages.antisense.corrected.RData")))
       
       exons.tr = exon.anno[which(!(exon.anno$exid == "")), ]$exid
       non.first.exons = exon.anno[which(!(exon.anno$exid == "") & !(exon.anno$first)), ]$exid
@@ -763,7 +763,7 @@ mc.cores = 8 # detectCores()
     data[, 6:10] = z.transform(data[,6:10]) # transforming apd values to 0-1
     clustermat = data
     nans = which(is.na(rowSums(clustermat)))
-    clustermat = clustermat[-nans,]
+    clustermat = clustermat[-nans,] # N = 2157
     ifpd.tr = rownames(clustermat)
     ifpd.clustermat = ifpd[ifpd.tr, ]
     save(ifpd.clustermat, file = paste0(tt.data.dir, "ifpd.clustermat.RData"))
@@ -842,6 +842,7 @@ mc.cores = 8 # detectCores()
     # half-lives
     decay.data["hl.0"] = log(2)/decay.data$`0.k_LM`
     decay.data["hl.96"] = log(2)/decay.data$`96.k_LM`
+    decay.data = decay.data[which(decay.data$hl.0 > 0 & decay.data$hl.96 > 0), ] # N = 4519 total (1814 in clusters)
     save(decay.data, file = paste0(pol2.out.dir, "/decay.data.RData"))
   }
 }
@@ -852,47 +853,24 @@ mc.cores = 8 # detectCores()
   # extracting 0h and 96h kinetics for analyzed transcripts
   
   tr = unlist(unique(cluster.list.ifpd.protein))
-  pif.0.96 = pif[tr, ][, c(1,5)]
+  pif.0.96 = pif[tr, ][, c(1,5)] # 0 and 96 hours
   colnames(pif.0.96) = paste0("pIF", colnames(pif.0.96))
   apd.0.96 = apd[tr, c(1,5)]
   colnames(apd.0.96) = paste0("aPD", colnames(apd.0.96))
-  nex.pwc = decay.data[tr, ][, c(1,4)] # 0h and 96 h pause coverages for ctrl samples
+  nex.pwc = decay.data[tr, ][, c(1,4)] # 0h and 96 h promoter proximal coverages for ctrl samples
   colnames(nex.pwc) = c("nPWC0", "nPWC96")
   
   data = cbind(pif.0.96[tr, ], apd.0.96[tr, ], nex.pwc[tr, ], decay.data[tr, c("hl.0", "hl.96")])
-  data = data[-which(is.na(rowSums(data))), ]
-  data[data < 0] = NA
   index = rownames(data)
   
   # pcr - pause clearance rate (total turnover rate at the promoter-proximal region)
   data["pcr0"] = log(2) * data[index, "0.0"]/data[index, "hl.0"]
   data["pcr96"] = log(2) * data[index, "96.0"]/data[index, "hl.96"] 
   
-  # rescaling values to 0-1, note that this do not affect the distributions of the pcr or any other quantities that are estimated subsequently 
-  rs = rescale(c(data$pcr0, data$pcr96))
-  l = nrow(data)
-  data$pcr0 = rs[1:l] # change these numbers if using any different annotation accordingly, 1865 is the nrow of the data df
-  data$pcr96 = rs[(l+1):(2*l)]
-  
-  # rescaled pIF - productive initiation frequency
-  rs = rescale(c(data$pIF0, data$pIF96)) 
-  data$pIF0 = rs[1:l]
-  data$pIF96 = rs[(l+1):(2*l)]
-  
-  # pIFcalc - elongation fraction
-  data["pIF0calc"] = data[index, "pIF0"]/data[index, "pcr0"]
-  data["pIF96calc"] = data[index, "pIF96"]/data[index, "pcr96"]
-  rs = rescale(c(data$pIF0calc, data$pIF96calc))
-  data$pIF0calc = rs[1:l]
-  data$pIF96calc = rs[(l+1):(2*l)]
-  
   # termination fraction
-  data["drop0"] = 1 - data[index, "pIF0calc"]
-  data["drop96"] = 1 - data[index, "pIF96calc"]
-  rs = rescale(c(data$drop0, data$drop96))
-  data$drop0 = rs[1:l]
-  data$drop96 = rs[(l+1):(2*l)]
-  
+  data["drop0"] = 1 - data[index, "pIF0"]/data[index, "pcr0"]
+  data["drop96"] = 1 - data[index, "pIF96"]/data[index, "pcr96"]
+
   # final dataframe
   save(data, file = paste0(out.dir, "/all.data.Rdata"))
 }
